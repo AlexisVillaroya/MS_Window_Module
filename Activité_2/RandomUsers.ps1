@@ -90,13 +90,14 @@ function New-Password
 $sites = ('Lyon', 'Paris')
 $services = ('Informatique','Comptabilité','Direction','Marketing','Production')
 $tld = "dom"
+$comp = "ESN"
 
-New-ADOrganizationalUnit -Name "Sites" -Path "DC=ESN,DC=$tld" -ProtectedFromAccidentalDeletion $false
+New-ADOrganizationalUnit -Name "Sites" -Path "DC=$comp,DC=$tld" -ProtectedFromAccidentalDeletion $false
 
 Foreach($site in $sites){
-    New-ADOrganizationalUnit -Name "$site" -Path "OU=Sites,DC=ESN,DC=$tld" -ProtectedFromAccidentalDeletion $false
+    New-ADOrganizationalUnit -Name "$site" -Path "OU=Sites,DC=$comp,DC=$tld" -ProtectedFromAccidentalDeletion $false
     Foreach($service in $services){
-        New-ADOrganizationalUnit -Name "$service" -Path "OU=$site,OU=Sites,DC=ESN,DC=$tld" -ProtectedFromAccidentalDeletion $false
+        New-ADOrganizationalUnit -Name "$service" -Path "OU=$site,OU=Sites,DC=$comp,DC=$tld" -ProtectedFromAccidentalDeletion $false
         
         $users = New-RandomUser -Amount 30 -Nationality FR -IncludeFields name,location,dob,phone,cell -ExcludeFields picture | Select-Object -ExpandProperty results
         $usersResp = New-RandomUser -Amount 2 -Nationality FR -IncludeFields name,location,dob,phone,cell -ExcludeFields picture | Select-Object -ExpandProperty results
@@ -104,11 +105,13 @@ Foreach($site in $sites){
             $pass = New-Password 
             $userattributes = @{
                 Name = -join ($user.name.first, " ", $user.name.last)
+                GivenName = "$user.name.first"
+                Surname = "$user.name.last"
                 AccountPassword = (ConvertTo-SecureString $pass -AsPlainText -Force)
                 Title = -join ("Employé", " ", $service)
                 Company = "$tld"
                 CannotChangePassword = $true
-                Path = "OU=$service,OU=$site,OU=Sites,DC=ESN,DC=$tld"
+                Path = "OU=$service,OU=$site,OU=Sites,DC=$comp,DC=$tld"
                 City = $site
 
             }
@@ -117,10 +120,12 @@ Foreach($site in $sites){
         Foreach($user in $usersResp){
             $userattributes = @{
                 Name = -join ($user.name.first, " ", $user.name.last)
+                GivenName = "$user.name.first"
+                Surname = "$user.name.last"
                 AccountPassword = (ConvertTo-SecureString $pass -AsPlainText -Force)
                 Title = -join ("Responsable", " ", $service)
                 CannotChangePassword = $false
-                Path = "OU=$service,OU=$site,OU=Sites,DC=ESN,DC=$tld"
+                Path = "OU=$service,OU=$site,OU=Sites,DC=$comp,DC=$tld"
                 City = $site
 
             }
