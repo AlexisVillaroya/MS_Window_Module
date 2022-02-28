@@ -72,27 +72,60 @@ function New-RandomUser {
     Invoke-RestMethod -Uri $rootUrl
 }
 
+function New-Password
+{
+    $Alphabets = 'a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
+    $numbers = 0..9
+    $specialCharacters = '~,!,@,#,$,%,^,&,*,(,),>,<,?,\,/,_,-,=,+'
+    $array = @()
+    $array += $Alphabets.Split(',') | Get-Random -Count 4
+    $array[0] = $array[0].ToUpper()
+    $array[-1] = $array[-1].ToUpper()
+    $array += $numbers | Get-Random -Count 3
+    $array += $specialCharacters.Split(',') | Get-Random -Count 3
+    ($array | Get-Random -Count $array.Count) -join ""
+}
+
 # Create OU
 $sites = ('Lyon', 'Paris')
 $services = ('Informatique','Comptabilité','Direction','Marketing','Production')
+$tld = "dom"
 
-New-ADOrganizationalUnit -Name "Sites" -Path "DC=ESN,DC=dom" -ProtectedFromAccidentalDeletion $false
+New-ADOrganizationalUnit -Name "Sites" -Path "DC=ESN,DC=$tld" -ProtectedFromAccidentalDeletion $false
 
 Foreach($site in $sites){
-    New-ADOrganizationalUnit -Name "$site" -Path "OU=Sites,DC=ESN,DC=dom" -ProtectedFromAccidentalDeletion $false
+    New-ADOrganizationalUnit -Name "$site" -Path "OU=Sites,DC=ESN,DC=$tld" -ProtectedFromAccidentalDeletion $false
     Foreach($service in $services){
-        New-ADOrganizationalUnit -Name "$service" -Path "OU=$site,OU=Sites,DC=ESN,DC=dom" -ProtectedFromAccidentalDeletion $false
+        New-ADOrganizationalUnit -Name "$service" -Path "OU=$site,OU=Sites,DC=ESN,DC=$tld" -ProtectedFromAccidentalDeletion $false
         
-        $users = New-RandomUser -Amount 32 -Nationality FR -IncludeFields name,location,dob,phone,cell -ExcludeFields picture | Select-Object -ExpandProperty results
+        $users = New-RandomUser -Amount 30 -Nationality FR -IncludeFields name,location,dob,phone,cell -ExcludeFields picture | Select-Object -ExpandProperty results
+        $usersResp = New-RandomUser -Amount 2 -Nationality FR -IncludeFields name,location,dob,phone,cell -ExcludeFields picture | Select-Object -ExpandProperty results
         Foreach($user in $users){
+            $pass = New-Password 
             $userattributes = @{
                 Name = -join ($user.name.first, " ", $user.name.last)
+                AccountPassword = (ConvertTo-SecureString $pass -AsPlainText -Force)
+                Title = -join ("Employé", " ", $service)
+                Company = "$tld"
                 CannotChangePassword = $true
-                Path = "OU=$service,OU=$site,OU=Sites,DC=ESN,DC=dom"
+                Path = "OU=$service,OU=$site,OU=Sites,DC=ESN,DC=$tld"
                 City = $site
 
             }
             New-ADUser @userattributes
+        }
+        Foreach($user in $usersResp){
+            $userattributes = @{
+                Name = -join ($user.name.first, " ", $user.name.last)
+                AccountPassword = (ConvertTo-SecureString $pass -AsPlainText -Force)
+                Title = -join ("Responsable", " ", $service)
+                CannotChangePassword = $false
+                Path = "OU=$service,OU=$site,OU=Sites,DC=ESN,DC=$tld"
+                City = $site
+
+            }
+            New-ADUser @userattributes
+
         }
     }
 }
